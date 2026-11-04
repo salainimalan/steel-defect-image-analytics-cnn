@@ -41,13 +41,25 @@ Notebook 01 checks Pascal VOC XML annotation correspondence. All validation imag
 
 ### 4.1 Notebook 00 — Basic Image Analytics
 
-This notebook displays RGB, grayscale, HSV, and Lab representations of a sample image. It plots separate RGB channel histograms and a grayscale histogram, then demonstrates Gaussian blur, Canny edge detection, and grayscale normalization. The images appear close to grayscale, so grayscale is the primary representation used in later analysis. The histograms describe pixel brightness distribution, and Canny shows local edges and transitions.
+This notebook displays RGB, grayscale, HSV, and Lab representations of a sample image. RGB shows the stored three-channel appearance; HSV separates hue, saturation, and value; Lab separates lightness from two chromatic components. The dataset images appear close to grayscale, so the alternative color models are useful for comparison but do not motivate a color-based model input.
+
+The notebook plots separate red, green, and blue histograms and a grayscale histogram. A histogram counts how many pixels occur at each intensity and helps show brightness range and contrast. It then compares the original grayscale image with Gaussian blur, Canny edges, and normalized grayscale. Blur smooths local changes, Canny emphasizes intensity boundaries, and normalization stretches the sample's intensity range. Basic statistics report dimensions, channels, grayscale minimum and maximum, mean, standard deviation, and edge density for the selected sample. These operations introduce pixel representation, neighborhood processing, and edge response before the full dataset analysis.
 
 ### 4.2 Notebook 01 — Dataset Exploration
 
-The inventory cell records image counts, dimensions, channels, and formats for each split and class. Annotation correspondence is checked by matching image filenames with XML files. Representative images are displayed with their bounding boxes. Per-image grayscale mean, standard deviation, minimum, and maximum are calculated and summarized by class.
+The inventory cell records image counts, dimensions, channels, and formats for each split and class. It confirms 240 training images and 60 validation images per class, all 200 × 200 JPG files decoded as three-channel arrays. Annotation correspondence is checked by matching image filenames with XML files. Representative images are displayed with their bounding boxes. Per-image grayscale mean, standard deviation, minimum, and maximum are calculated, then grouped by split and class. The intensity-distribution plot compares the per-image mean brightness across classes.
 
-The notebook also demonstrates morphology and DCT. Otsu thresholding creates a binary image, then opening and closing alter small regions and gaps. The resulting response remains irregular due to the steel texture, so the demonstration is not a reliable defect segmentation method. DCT visualization separates low-frequency structure from high-frequency detail, illustrating the different spatial information represented in the transform.
+The notebook also demonstrates morphology and DCT. Inverse Otsu thresholding creates a binary response from grayscale pixels. A 3 × 3 structuring element is used for opening and closing: opening removes some small foreground components, while closing fills some small gaps. The resulting response remains irregular due to steel texture, so the demonstration is not a reliable defect segmentation method.
+
+![Notebook 01 morphology demonstration: thresholded response after opening and closing](outputs/neu_dataset_exploration/morphology_demo.png)
+
+**Figure 1. Morphology demonstration.** Opening and closing alter small foreground regions and gaps in the threshold response. In the analytics-assisted CNN, a morphology response is supplied as an additional channel to provide structural information alongside grayscale appearance. Since the response is noisy, it acts as a cue for the CNN rather than a precise defect mask.
+
+The DCT maps image intensity into frequency coefficients. The top-left block is visualized as low-frequency structure; setting that block to zero leaves a high-frequency response. Log scaling and normalization make these coefficients visible. This demonstrates broad versus fine spatial information; it does not itself classify or localize defects.
+
+![Notebook 01 DCT demonstration showing low-frequency coefficients and high-frequency detail](outputs/neu_dataset_exploration/dct_demo.png)
+
+**Figure 2. DCT demonstration.** Low frequencies represent broad intensity changes and larger patterns; high frequencies represent fine texture and sharp changes that may include cracks or scratches. The analytics-assisted CNN receives a normalized high-frequency DCT image as an extra channel, helping it access fine-detail information in addition to the original grayscale image. High-frequency responses can also contain ordinary texture and noise, so the CNN combines this channel with grayscale and morphology information.
 
 ### 4.3 Notebook 02 — Image Feature Analytics
 
@@ -63,7 +75,7 @@ The feature extraction notebook creates one row per image and 18 numerical measu
 | DCT | `dct_low_energy_ratio`, `dct_high_energy_ratio` | Proportions of DCT energy in low and high frequencies |
 | Morphology | `morphology_region_count`, `morphology_largest_area`, `morphology_foreground_ratio` | Connected-region count, largest area, and foreground fraction |
 
-The notebook displays category summaries and boxplots for grayscale mean, edge density, local variance, LBP mean, and DCT high-frequency energy. The comparisons show that the classes differ across multiple image properties. The morphology values are derived from thresholded images and should be interpreted as structural measurements of those responses.
+The notebook displays category summaries and boxplots for grayscale mean, edge density, local variance, LBP mean, and DCT high-frequency energy. In the saved table, mean grayscale brightness ranges from 95.146 for scratches to 176.666 for pitted surfaces. Mean edge density is highest for crazing (0.312) and patches (0.229), while inclusion is near zero (0.001). Mean local variance is high for crazing (374.821) and patches (298.676), and much lower for inclusion (14.109). Average high-frequency DCT energy ratio is greatest for crazing (0.013) and patches (0.011), and lowest for inclusion (0.001). These category means illustrate useful differences, but do not by themselves imply clean separation of every individual image. The morphology values are derived from thresholded images and should be interpreted as structural measurements of those responses.
 
 ### 4.4 Notebook 04 — Grayscale CNN Baseline
 
