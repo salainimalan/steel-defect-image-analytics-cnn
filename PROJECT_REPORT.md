@@ -1,228 +1,198 @@
-# Project Report: Steel Surface Defect Classification with Image Analytics and CNNs
+# Industrial Steel Surface Defect Classification Using Image Analytics and CNNs
+
+## Project Report
+
+**Project domain:** Industrial image analytics and automated visual inspection  
+**Dataset:** NEU Surface Defect Database (NEU-DET)  
+**Task:** Six-class steel surface defect classification  
 
 ## Abstract
 
-This project studies image analytics for automated classification of steel surface defects using the NEU Surface Defect Database (NEU-DET). It combines interpretable image measurements with classical machine learning and convolutional neural networks (CNNs). The work explores intensity, edges, texture, frequency-domain information from the Discrete Cosine Transform (DCT), and structural information from morphological operations. It then compares a grayscale CNN, an analytics-assisted CNN, and a CNN that fuses image channels with a numerical feature vector.
+Automated visual inspection can help manufacturers identify surface defects consistently and at scale. This project studies a staged image analytics workflow for classifying steel surface defects from the NEU Surface Defect Database (NEU-DET). It begins with image representation and dataset inspection, then extracts interpretable intensity, edge, texture, frequency-domain, and morphology measurements. These measurements support classical machine learning and guide CNN input design. Three neural approaches are considered: a grayscale CNN, an analytics-assisted CNN with grayscale, DCT, and morphology image channels, and a feature-fusion CNN that combines those image channels with the numerical feature table.
 
-The dataset contains 1,800 images across six defect categories: 1,440 training images and 360 validation images. In the recorded experiments, Random Forest and the analytics-assisted CNN each reached 98.33% validation accuracy. The grayscale CNN reached a best recorded validation accuracy of 88.61%. A separate feature-fusion notebook is included for Review 3; its tracked confusion matrix is shown below, but its accuracy is not included in the recorded model-comparison table, so no fusion score is asserted here.
+The dataset contains 1,800 images across six defect categories: 1,440 training images and 360 validation images. In the recorded runs, Random Forest reached 98.33% validation accuracy, the grayscale CNN reached a best recorded validation accuracy of 88.61%, the analytics-assisted CNN reached 98.33%, and the feature-fusion CNN reached a best recorded 98.61% (98.06% at its final epoch). The fusion model's best score is only 0.28 percentage points above the analytics-assisted CNN. Because the results come from single runs on one validation split, they indicate promising performance on this dataset rather than reliable superiority or production readiness.
 
-## 1. Project aims
+## 1. Introduction
 
-- Explore how digital image representation and basic image operations describe steel surface appearance.
-- Extract intensity, edge, texture, frequency, and morphology measurements.
-- Compare classical ML models trained on the extracted feature table.
-- Evaluate CNN classification using raw grayscale and analytics-derived image channels.
-- Extend the analytics-assisted CNN by fusing a numerical feature vector with learned image features.
-- Interpret model errors and explain the role of each analytical representation.
+Steel surface quality affects the performance, appearance, and reliability of manufactured products. Defects may be subtle, vary in shape and texture, and occur at different scales. Visual inspection by people can be time-consuming and inconsistent, motivating computer vision methods that can classify defect types automatically.
 
-## 2. Dataset and product
+Deep learning can learn visual patterns from images, while classical image analytics provides explicit measurements such as brightness, edge density, texture, and frequency energy. This project combines these perspectives. The analytics stages explain what differs between defect categories and provide structured inputs for machine-learning models. CNN experiments then test whether these representations support accurate image classification.
 
-The project uses NEU-DET, a collection of grayscale steel surface images. Each image is 200 × 200 pixels. The six classes are:
+The project addresses image-level classification: each input image is assigned one of six defect labels. It does not claim pixel-level defect segmentation or localization performance. The dataset includes bounding-box annotations, which are inspected for correspondence and shown with sample images, but the classification models do not use annotation boxes as prediction inputs.
 
-| Class | Description |
+## 2. Aim and objectives
+
+### Aim
+
+To investigate how classical image analytics can support CNN-based classification of steel surface defects.
+
+### Objectives
+
+1. Inspect the dataset structure, image representation, and annotation correspondence.
+2. Compare color models and basic preprocessing operations.
+3. Extract interpretable intensity, edge, texture, DCT, and morphology features.
+4. Evaluate the feature table with classical machine-learning classifiers.
+5. Establish a grayscale CNN baseline.
+6. Add DCT and morphology-derived image channels to an analytics-assisted CNN.
+7. Fuse image-channel representations with the numerical feature table and compare validation results.
+
+## 3. Dataset and defect classes
+
+NEU-DET contains 1,800 steel surface images at 200 × 200 pixels. The project uses the provided training and validation partitions. The file inventory reports 240 training images and 60 validation images in each class. Images are JPG files. Although the files decode as three-channel images, their visual content is close to grayscale; grayscale therefore serves as the primary analysis representation.
+
+| Class | Typical visual characteristics |
 |---|---|
-| Crazing | Fine crack-like or network patterns |
-| Inclusion | Irregular embedded or foreign material regions |
-| Patches | Broad regions with a different surface pattern |
-| Pitted surface | Pit-like marks and local surface depressions |
-| Rolled-in scale | Scale-like patterns associated with rolling |
+| Crazing | Fine, network-like cracks or lines across the surface |
+| Inclusion | Irregular embedded or foreign-material regions |
+| Patches | Broad areas with a different surface appearance |
+| Pitted surface | Local pit-like marks or depressions |
+| Rolled-in scale | Scale-like patterns or marks on the surface |
 | Scratches | Thin, elongated surface marks |
 
-The project uses the dataset's training and validation splits. The validation split contains 60 examples per class. Dataset images and annotation files are not stored in this repository; annotations are inspected for correspondence and may support evaluation, but are not prediction inputs.
+### Annotation check
 
-## 3. Workflow
+Notebook 01 compares every image filename with the corresponding Pascal VOC XML annotation. All 360 validation images have matching XML files. In the training split, all images match except `crazing_240.jpg`; this single file has no matching annotation. The sample visualization overlays boxes for inspection. These boxes are not supplied to the classifiers and do not affect the analytical feature extraction.
+
+## 4. Methodology
+
+### 4.1 Image representation and basic operations
+
+Notebook 00 compares RGB, grayscale, HSV, and Lab views. It plots RGB channel and grayscale histograms, and demonstrates Gaussian blur, Canny edge detection, and grayscale normalization. This establishes that the images have little meaningful color variation and motivates grayscale as the main representation. The alternative color spaces remain useful as comparisons, while edges and histograms make local structure and intensity distributions easier to inspect.
+
+### 4.2 Dataset exploration and preprocessing demonstrations
+
+Notebook 01 produces an inventory by split and category, checks annotation correspondence, visualizes representative images and bounding boxes, and records per-image grayscale intensity statistics. It also demonstrates thresholding followed by morphological opening and closing, and visualizes low- and high-frequency DCT components.
+
+The morphology example shows that thresholding can create many irregular regions from the naturally textured steel surface. Opening removes some small components and closing fills some gaps, but the result is not a reliable defect mask. In later modelling, morphology is therefore a supporting representation rather than a standalone segmentation solution.
+
+The DCT demonstration separates broad intensity structure from fine spatial detail. High-frequency coefficients can represent scratches, cracks, and texture, but also respond to ordinary surface texture and noise. DCT is treated as a complementary analytical view, not as a defect-specific detector by itself.
+
+### 4.3 Numerical feature extraction
+
+Notebook 02 builds one feature row per image. The table has 18 analytical values plus `split`, `category`, and `file` identifiers.
+
+| Feature family | Table columns | Interpretation |
+|---|---|---|
+| Intensity | `gray_mean`, `gray_std`, `gray_min`, `gray_max` | Average brightness, brightness variation, and minimum/maximum pixel values |
+| Edges | `edge_density`, `edge_mean` | Fraction of edge pixels and mean edge response from Canny processing |
+| Local texture | `lbp_mean`, `lbp_std` | Mean and variation of local binary pattern codes around pixels |
+| Neighborhood variation | `local_variance_mean`, `local_variance_std` | Mean and variation of local pixel variance, describing roughness and texture changes |
+| GLCM | `glcm_contrast`, `glcm_homogeneity`, `glcm_energy` | Contrast, similarity, and regularity of neighboring gray-level pairs |
+| DCT | `dct_low_energy_ratio`, `dct_high_energy_ratio` | Fractions of squared DCT coefficient energy in low- and high-frequency regions |
+| Morphology | `morphology_region_count`, `morphology_largest_area`, `morphology_foreground_ratio` | Count and size of connected thresholded regions and the fraction of foreground pixels |
+
+For GLCM, grayscale values are reduced to 16 levels and horizontal neighboring pixel pairs are counted. DCT energy is computed from squared coefficients; low-frequency energy comes from the top-left 32 × 32 coefficient block and high-frequency energy is the remaining energy. Morphology measurements are calculated after inverse Otsu thresholding, opening, and closing, followed by connected-component analysis.
+
+The feature comparison plot displays category distributions for grayscale mean, edge density, local variance, LBP mean, and high-frequency DCT energy. These plots show why multiple feature families are useful: brightness, boundaries, texture, and frequency describe different aspects of the defects. Within-class variability remains visible, so individual features should not be expected to cleanly separate all classes on their own. Morphology values are especially sensitive to thresholding and may measure background surface texture as well as defect structure.
+
+### 4.4 Classical machine learning
+
+The numerical feature table provides the input for Logistic Regression and Random Forest in the classical ML workflow. These models evaluate whether the engineered measurements alone can classify defect categories. The tracked model-comparison CSV reports Logistic Regression at 95.83% and Random Forest at 98.33% validation accuracy. The Random Forest result suggests that nonlinear combinations of the analytical features are useful on this split.
+
+The current working tree has deletions for the classical confusion matrices and feature-importance plot. Consequently, this report discusses the saved numerical accuracy comparison but does not infer class-specific errors or rank individual features using those unavailable plots.
+
+### 4.5 CNN model designs
+
+#### Model A: Grayscale CNN
+
+Notebook 04 loads each image as a single grayscale channel, converts pixels to tensors, and normalizes them. Two convolution blocks with ReLU activations and max pooling learn spatial patterns. A dense classifier maps the learned representation to six output classes. Training uses cross-entropy loss and the Adam optimizer with a learning rate of 0.001 for ten epochs.
+
+#### Model B: Analytics-assisted CNN
+
+Notebook 05 constructs three aligned channels for each image:
+
+1. **Grayscale:** normalized original brightness and surface appearance.
+2. **High-frequency DCT:** magnitude of the DCT after removing a low-frequency coefficient block, then normalized to an image channel.
+3. **Morphology response:** inverse Otsu threshold response refined by 3 × 3 opening and closing.
+
+The three channels are supplied to a CNN with the same general convolutional classifier structure and ten-epoch schedule. The model can learn from original appearance alongside frequency detail and thresholded structural patterns.
+
+#### Model C: Feature-fusion CNN
+
+Notebook 06 extends Model B with a numerical feature branch:
 
 ```text
-Dataset inspection
-        ↓
-Basic image representation and preprocessing
-        ↓
-Intensity, edge, texture, DCT, and morphology analytics
-        ↓
-Feature table ──────────────→ Logistic Regression / Random Forest
-        ↓
-Grayscale CNN ──────────────→ validation comparison
-        ↓
-Grayscale + DCT + morphology channels ─→ analytics-assisted CNN
-        ↓
-Image-channel CNN + numerical feature vector ─→ Review 3 fusion CNN
+Grayscale + DCT + morphology images → CNN branch ─┐
+                                                  ├→ concatenate → six-class classifier
+18 numerical analytical features → dense branch ─┘
 ```
 
-## 4. Image analytics
+The image branch maps the three-channel image to a learned vector. The numerical branch maps the 18 feature values through a dense layer and ReLU activation. The vectors are concatenated and passed to the final classifier. A `StandardScaler` is fitted on training rows and then applied to the feature table, avoiding the use of validation statistics when estimating scaling parameters. The fused model uses cross-entropy loss and Adam.
 
-### 4.1 Representation and preprocessing
+### 4.6 Evaluation protocol
 
-The basic analytics notebook compares RGB, grayscale, HSV, and Lab representations, displays color-channel and grayscale histograms, and demonstrates Gaussian blur, Canny edges, and normalization. The dataset is visually close to grayscale, so grayscale carries the main appearance information. HSV and Lab are included as color-model comparisons rather than assumed to provide additional signal.
+The notebooks report validation accuracy and confusion matrices; classification reports provide precision, recall, and F1-score for CNN models. There are 360 images in the validation partition. CNN histories record accuracy for each of ten epochs. For comparison, this report presents the best recorded validation accuracy for each CNN when available and separately identifies the fusion model's final-epoch accuracy.
 
-### 4.2 Intensity and edges
+These scores are from individual training runs. The validation split is used repeatedly for model comparison and epoch selection, so it is not an untouched test set. No confidence intervals or repeated-seed averages are available in the current outputs.
 
-For each image, grayscale summaries include mean, standard deviation, minimum, and maximum pixel values. Canny edge processing supplies edge density and edge response measurements. These describe brightness, contrast, and the amount of local boundary-like structure.
+## 5. Results and findings
 
-### 4.3 Texture
+### 5.1 Dataset and image analytics findings
 
-- **LBP (Local Binary Pattern):** summarizes local neighborhood patterns and texture variation.
-- **Local variance:** measures intensity variation in neighborhoods, indicating rough or irregular surface appearance.
-- **GLCM (Gray-Level Co-occurrence Matrix):** measures neighboring gray-level relationships. The table includes contrast, homogeneity, and energy.
+- The dataset is balanced across six classes, with 240 training and 60 validation images per category.
+- All images are 200 × 200 JPG files and visually close to grayscale.
+- Validation annotations are complete; one training image, `crazing_240.jpg`, is missing its matching XML file.
+- Histograms and intensity summaries show differences in brightness and contrast, alongside variation within categories.
+- Edge density and local variance capture different surface characteristics from brightness alone.
+- LBP, GLCM, and local variance provide complementary texture descriptions.
+- DCT ratios summarize broad versus fine-frequency energy, while morphology descriptors summarize thresholded connected regions.
+- Morphological opening and closing alter noisy threshold responses but do not reliably isolate defects in these images.
 
-These measurements provide numeric ways to compare surface texture among defect classes.
+### 5.2 Model results
 
-### 4.4 DCT frequency analytics
+| Model | Input | Best recorded validation accuracy | Final recorded epoch accuracy | Notes |
+|---|---|---:|---:|---|
+| Logistic Regression | 18 numerical image features | 95.83% | Not recorded in the summary file | Classical linear baseline |
+| Random Forest | 18 numerical image features | 98.33% | Not recorded in the summary file | Strong nonlinear feature-based baseline |
+| Grayscale CNN | Grayscale image | 88.61% | 80.83% | Best at epoch 7; accuracy fluctuated across epochs |
+| Analytics-assisted CNN | Grayscale, DCT, morphology channels | 98.33% | 98.33% | Reached the reported value at epoch 10 |
+| Feature-fusion CNN | Three image channels plus 18 numerical features | 98.61% | 98.06% | Best at epoch 9; final epoch slightly lower |
 
-The DCT maps image intensity into spatial-frequency coefficients. Low-frequency energy reflects broad brightness changes and large structures. High-frequency energy reflects fine changes such as edges and texture. The feature table includes low- and high-frequency energy ratios. The analytics-assisted CNN also receives a normalized high-frequency DCT representation as an image channel.
+The fusion CNN's best recorded validation accuracy is 0.28 percentage points above the analytics-assisted CNN and Random Forest. Its final-epoch accuracy is 0.27 percentage points below them. This small difference does not show that fusion provides a stable improvement. Repeated runs and a consistent checkpoint-selection procedure are required to determine whether the numerical branch adds a reliable benefit.
 
-### 4.5 Morphological analytics
+The grayscale CNN shows larger epoch-to-epoch variation than the other reported CNN runs. Its best score is substantially lower than the analytics-assisted CNN result, suggesting that the additional channels coincided with improved performance in these runs. Because there is no controlled channel ablation or repeated-seed experiment, the individual contributions of DCT and morphology cannot be isolated from the current evidence.
 
-Thresholding converts an image into a binary response. Opening removes small isolated foreground components, while closing fills small gaps. Connected-component measurements summarize region count, largest area, and foreground ratio. Because steel texture can itself form many irregular regions, these measurements are exploratory structural cues and are not treated as precise defect segmentation.
+### 5.3 Comparison and interpretation
 
-## 5. Feature table
+The classical ML results show that compact analytical features can be highly discriminative for this dataset. The grayscale CNN learns spatial patterns directly from image pixels, but its recorded training run was less consistent. The analytics-assisted CNN combines grayscale appearance with frequency and structural image responses and achieved the same validation accuracy as Random Forest. The feature-fusion CNN adds the measured table values to those image channels and reached the highest recorded best-epoch score, although the gain is very small and the final epoch did not retain it.
 
-Notebook 02 produces one row per image with identifiers (`split`, `category`, `file`) and 18 numeric features:
+The project therefore demonstrates a plausible role for image analytics in CNN design: measurements can explain category differences and can be converted into additional representations or numerical inputs. The available results support further study of feature fusion, but do not yet establish that it generalizes better than the other approaches.
 
-| Group | Feature columns |
-|---|---|
-| Intensity | `gray_mean`, `gray_std`, `gray_min`, `gray_max` |
-| Edges | `edge_density`, `edge_mean` |
-| Texture | `lbp_mean`, `lbp_std`, `local_variance_mean`, `local_variance_std` |
-| GLCM | `glcm_contrast`, `glcm_homogeneity`, `glcm_energy` |
-| DCT | `dct_low_energy_ratio`, `dct_high_energy_ratio` |
-| Morphology | `morphology_region_count`, `morphology_largest_area`, `morphology_foreground_ratio` |
+## 6. Selected figures
 
-The table supports category summaries and classical ML. In Review 3, its numerical columns are standardized using training-split statistics and passed through a dense feature branch. Identifiers and category labels are excluded from model inputs.
+The following plots directly support the report's main findings: dataset appearance and annotation examples, representative feature differences, and the performance/error patterns of the principal CNN models.
 
-## 6. Models
+![Representative defect samples with annotation boxes](outputs/neu_dataset_exploration/sample_images_with_boxes.png)
 
-### 6.1 Classical machine learning
-
-Logistic Regression and Random Forest classify the numerical feature table. Their results provide a baseline and help show whether the hand-designed measurements separate defect categories.
-
-### 6.2 Grayscale CNN
-
-A small CNN learns spatial patterns directly from grayscale images. Convolutional layers learn local visual structures, and a classifier maps the learned representation to one of the six defect classes.
-
-### 6.3 Analytics-assisted CNN
-
-This CNN receives three aligned image channels:
-
-1. Grayscale appearance
-2. High-frequency DCT detail
-3. Morphology response
-
-The additional channels provide frequency and structural representations alongside the original appearance. They do not use annotation masks or labels to create predictions.
-
-### 6.4 Review 3 feature-fusion CNN
-
-The Review 3 model has two branches:
-
-- An image CNN processes grayscale, DCT, and morphology channels.
-- A dense/MLP branch processes the 18 normalized numeric features.
-
-The branch outputs are concatenated and passed to a six-class classifier. The notebook uses cross-entropy loss and the Adam optimizer. Its purpose is to test whether the numerical measurements add value beyond the image channels. The fusion model's result should be compared using its own recorded validation report; the score should not be inferred from another model's run.
-
-## 7. Results
-
-### 7.1 Recorded validation accuracy
-
-| Model | Validation accuracy |
-|---|---:|
-| Logistic Regression | 95.83% |
-| Random Forest | 98.33% |
-| Grayscale CNN | 88.61% best recorded epoch |
-| Analytics-Assisted CNN | 98.33% |
-
-The grayscale CNN fluctuated over the 10 recorded epochs: its best validation accuracy was 88.61% at epoch 7, while its final epoch was 80.83%. The analytics-assisted CNN rose to 98.33% at epoch 10. These are results from the recorded runs on the fixed validation split; they are not independent test-set estimates.
-
-The feature-fusion CNN has a tracked confusion-matrix plot, but its CSV training history and model comparison score are not part of the Git-tracked results. Therefore, this report does not claim that feature fusion improved accuracy. Run Notebook 06 and record its validation metrics before making that conclusion.
-
-### 7.2 Model comparison plot
-
-![Recorded model validation accuracy comparison](outputs/neu_final_evaluation/model_comparison.png)
-
-### 7.3 Classical ML results
-
-The Random Forest reached 98.33%, compared with 95.83% for Logistic Regression. This indicates that the feature table contains class-discriminating patterns and that nonlinear decision boundaries can be useful for this dataset.
-
-![Logistic Regression confusion matrix](outputs/neu_classical_ml/logistic_regression_confusion_matrix.png)
-
-![Random Forest confusion matrix](outputs/neu_classical_ml/random_forest_confusion_matrix.png)
-
-![Random Forest feature importance](outputs/neu_classical_ml/feature_importance.png)
-
-### 7.4 CNN results
-
-The grayscale CNN's validation performance varied across epochs. The analytics-assisted CNN reached the same best recorded accuracy as the Random Forest. This run suggests that the DCT and morphology channels provided useful complementary representations, though repeated controlled runs would be needed to quantify a robust improvement.
+![Feature comparison across defect categories](outputs/neu_feature_analytics/feature_comparisons.png)
 
 ![Grayscale CNN confusion matrix](outputs/neu_cnn/cnn_confusion_matrix.png)
 
 ![Analytics-assisted CNN confusion matrix](outputs/neu_analytics_cnn/analytics_cnn_confusion_matrix.png)
 
-### 7.5 Feature-fusion result visualization
+![Feature-fusion CNN confusion matrix](outputs/neu_review3_feature_fusion/fusion_confusion_matrix.png)
 
-![Review 3 fusion CNN confusion matrix](outputs/neu_review3_feature_fusion/fusion_confusion_matrix.png)
+## 7. Conclusion
 
-The confusion matrix visualizes the stored prediction result. To report a numerical score, use the validation accuracy and classification report produced by running the current Review 3 notebook; do not substitute the score from the analytics-assisted CNN.
+This project built an image analytics workflow for six-class steel surface defect classification. Basic representation analysis supported grayscale processing. Intensity, edge, texture, DCT, and morphology measurements produced an interpretable feature table, and Random Forest achieved 98.33% validation accuracy with that table. The grayscale CNN achieved a best recorded 88.61%; adding DCT and morphology image channels coincided with a 98.33% result. The feature-fusion CNN, which also receives the numerical measurements, achieved a best recorded 98.61% and a final-epoch score of 98.06%.
 
-## 8. Analytical visualizations
+These results show that analytical image representations and numerical descriptors are promising inputs for CNN classification on NEU-DET. The modest best-score difference from the other strong models requires repeated, controlled evaluation before concluding that feature fusion is superior. The work is a classification study and does not establish production readiness or defect localization performance.
 
-### Basic representations
+## 8. Reproducibility and project files
 
-![Color model comparison](outputs/neu_basic_analytics/color_models.png)
+Place the dataset under `dataset/NEU-DET/` with `train/images`, `train/annotations`, `validation/images`, and `validation/annotations`. Install OpenCV, NumPy, Pandas, Matplotlib, scikit-learn, PyTorch, and Jupyter in the selected Python environment. Run the current notebooks in sequence: 00, 01, 02, 04, 05, and 06. Notebook 02 generates the feature table required by Notebook 06. Each notebook writes generated files under `outputs/`.
 
-![RGB and grayscale histograms](outputs/neu_basic_analytics/histograms.png)
+Current analysis notebooks:
 
-![Image operations](outputs/neu_basic_analytics/image_operations.png)
+- `00_neu_basic_image_analytics.ipynb` — color models, histograms, and basic operations
+- `01_neu_dataset_exploration1.ipynb` — inventory, annotations, intensity, morphology, and DCT demonstrations
+- `02_neu_feature_analytics2.ipynb` — numerical feature extraction and comparisons
+- `04_neu_cnn_baseline.ipynb` — grayscale CNN
+- `05_neu_analytics_assisted_cnn.ipynb` — three-channel analytics-assisted CNN
+- `06_neu_review3_feature_fusion.ipynb` — CNN and feature-table fusion
 
-### Dataset examples and processing
+The dataset is excluded from this repository. Selected PNG figures are tracked; generated tables, training histories, and model weights are created locally by running the notebooks.
 
-![Annotated dataset sample images](outputs/neu_dataset_exploration/sample_images_with_boxes.png)
+## Dataset attribution
 
-![Image intensity distribution](outputs/neu_dataset_exploration/intensity_distribution.png)
-
-![DCT components](outputs/neu_dataset_exploration/dct_demo.png)
-
-![Morphology demonstration](outputs/neu_dataset_exploration/morphology_demo.png)
-
-### Feature comparisons
-
-![Feature comparisons across defect classes](outputs/neu_feature_analytics/feature_comparisons.png)
-
-These visualizations illustrate why multiple measurements are useful: defect categories differ in brightness, edge content, texture, frequency energy, and morphology-derived structure. Individual features do not necessarily separate every class on their own.
-
-## 9. Interpretation
-
-- The close-to-grayscale appearance makes grayscale a practical main input representation.
-- Texture, edge, intensity, and DCT measurements provide interpretable evidence about category differences.
-- Random Forest performs strongly on the extracted features for this validation split.
-- The analytics-assisted CNN substantially exceeds the recorded grayscale CNN best score in this run.
-- Morphology is useful as an additional structural response, but thresholded regions are noisy and should not be described as accurate defect masks without a dedicated segmentation evaluation.
-- Review 3 is designed to test numerical feature fusion. Its value must be established through its recorded metrics and a fair comparison under consistent data splits and training conditions.
-
-## 10. Limitations and next steps
-
-- The dataset is small and has a fixed validation split; performance may not generalize to production images.
-- Training results are stochastic and may change with initialization, hardware, and software versions.
-- Results should be supported by repeated seeds or a held-out test set before making broad performance claims.
-- The validation set is used for model comparison, so it should not be described as an untouched final test set.
-- The feature-fusion notebook's metric needs to be run and recorded alongside the baseline under the same protocol.
-- Future work could add repeated-run mean and standard deviation, per-class precision/recall/F1, and an ablation study that removes one analytical channel or feature group at a time.
-- Localization would require a separate method and pixel-level evaluation; the classification scores in this report do not demonstrate defect localization.
-
-## 11. Reproducibility
-
-1. Place the NEU-DET dataset under `dataset/NEU-DET/` using the expected folder structure described in `README.md`.
-2. Install the notebook dependencies in the selected Python environment.
-3. Run notebooks 00, 01, and 02 to inspect the data and create the feature table.
-4. Run notebooks 04 and 05 for the CNN baselines.
-5. Run notebook 06 for the Review 3 feature-fusion experiment.
-6. Preserve the generated validation reports and update this report if results change.
-
-Notebook outputs are written under `outputs/`. The dataset is not distributed in this repository. The selected plots are tracked; tables, model weights, and most run-specific files are generated locally.
-
-## 12. Project contents
-
-- `notebooks/00_neu_basic_image_analytics.ipynb` — basic representations, histograms, and operations
-- `notebooks/01_neu_dataset_exploration1.ipynb` — dataset inventory and exploratory processing
-- `notebooks/02_neu_feature_analytics2.ipynb` — feature extraction and comparison
-- `notebooks/04_neu_cnn_baseline.ipynb` — grayscale CNN baseline
-- `notebooks/05_neu_analytics_assisted_cnn.ipynb` — three-channel analytics-assisted CNN
-- `notebooks/06_neu_review3_feature_fusion.ipynb` — CNN and numerical feature fusion
-- `README.md` — repository setup and quick start
+The project does not redistribute the NEU-DET dataset. Users should obtain it from its provider and follow the associated terms for access, use, attribution, and redistribution.

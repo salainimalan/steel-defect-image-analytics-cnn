@@ -1,62 +1,71 @@
-# Steel Surface Defect Classification with Image Analytics and CNNs
+# Steel Surface Defect Classification Using Image Analytics and CNNs
 
-An educational image analytics project that studies steel surface images and compares classical image features, machine learning, and convolutional neural networks (CNNs) for six-class defect classification.
+An image analytics and deep-learning project for classifying steel surface defects in the NEU Surface Defect Database (NEU-DET). The workflow studies intensity, edges, texture, frequency-domain information, and morphology, then compares classical machine learning with CNN-based approaches.
 
-## Project at a glance
-
-**Full project report:** [PROJECT_REPORT.md](PROJECT_REPORT.md) — project overview, methods, recorded results, and embedded plots.
+## Project overview
 
 - **Dataset:** NEU Surface Defect Database (NEU-DET)
-- **Images:** 1,800 grayscale images, 200 × 200 pixels
-- **Classes:** crazing, inclusion, patches, pitted surface, rolled-in scale, and scratches
-- **Data split:** 1,440 training images and 360 validation images
-- **Main goal:** understand how image analytics can describe defect patterns and support CNN classification
+- **Images:** 1,800 grayscale-looking images, each 200 × 200 pixels
+- **Classes:** crazing, inclusion, patches, pitted surface, rolled-in scale, scratches
+- **Split:** 1,440 training images and 360 validation images
+- **Task:** Image-level classification into six defect categories
 
-The project includes a feature-fusion experiment that combines analytical image channels with a numerical feature table. Results depend on the training run, software versions, and hardware; reported scores should be treated as validation results for this dataset split, not as guarantees of performance in production.
+The dataset is not included in this repository. The project report is available in [PROJECT_REPORT.md](PROJECT_REPORT.md).
 
 ## Defect categories
 
-| Category | Typical visual pattern |
+| Class | Typical surface pattern |
 |---|---|
-| Crazing | Fine, network-like cracks or lines |
+| Crazing | Fine network-like cracks or lines |
 | Inclusion | Irregular embedded or foreign-material regions |
-| Patches | Broad areas with a different surface appearance |
+| Patches | Broad areas with a different appearance |
 | Pitted surface | Small pit-like marks or depressions |
-| Rolled-in scale | Scale-like marks formed during rolling |
-| Scratches | Thin, elongated surface marks |
+| Rolled-in scale | Scale-like surface marks |
+| Scratches | Thin elongated marks |
 
-## Analytics explored
+## Analysis workflow
 
-- **Image representation:** RGB/grayscale inspection and comparisons of HSV and Lab color spaces. Although the images decode as three-channel files, they are visually close to grayscale, so grayscale analysis is central.
-- **Intensity:** mean, standard deviation, minimum, maximum, and intensity distributions.
-- **Edges:** Canny edge response and edge density.
-- **Texture:** Local Binary Patterns (LBP), local variance, and Gray-Level Co-occurrence Matrix (GLCM) measures.
-- **Frequency:** Discrete Cosine Transform (DCT) low- and high-frequency energy measurements.
-- **Morphology:** thresholding, opening, closing, and connected-region descriptors. These provide exploratory structural cues; they are not reliable standalone defect masks for every image.
+The notebooks progress from image representation to feature analysis and classification:
 
-These measurements help compare categories and support classical ML. In the analytics-assisted CNN, grayscale, a high-frequency DCT representation, and a morphology response form three image channels. The Review 3 notebook adds the numerical analytical features through a separate MLP branch and joins both branches before classification.
+1. `00_neu_basic_image_analytics.ipynb` — RGB, grayscale, HSV and Lab representations; histograms; blur, edges, normalization, and basic statistics.
+2. `01_neu_dataset_exploration1.ipynb` — dataset inventory, annotation matching, sample images, intensity summaries, morphology and DCT demonstrations.
+3. `02_neu_feature_analytics2.ipynb` — per-image intensity, edge, LBP, local variance, GLCM, DCT, and morphology features.
+4. `04_neu_cnn_baseline.ipynb` — grayscale CNN baseline.
+5. `05_neu_analytics_assisted_cnn.ipynb` — CNN using grayscale, high-frequency DCT, and morphology image channels.
+6. `06_neu_review3_feature_fusion.ipynb` — CNN image branch fused with the numerical feature table.
 
-## Repository layout
+The numbering follows the existing notebook files; there is no Notebook 03 in the repository.
 
-```text
-.
-├── dataset/                         # Local NEU-DET dataset (not tracked by Git)
-├── notebooks/
-│   ├── 00_neu_basic_image_analytics.ipynb
-│   ├── 01_neu_dataset_exploration1.ipynb
-│   ├── 02_neu_feature_analytics2.ipynb
-│   ├── 04_neu_cnn_baseline.ipynb
-│   ├── 05_neu_analytics_assisted_cnn.ipynb
-│   └── 06_neu_review3_feature_fusion.ipynb
-├── outputs/                          # Generated tables, plots, and model weights
-└── create_neu_notebook_review3.py    # Generator for the Review 3 notebook
-```
+## Models and recorded results
 
-The current notebook numbering reflects the project history; there is no Notebook 03 file in this repository. Notebook 06 is the Review 3 feature-fusion experiment.
+| Model | Input | Recorded validation accuracy |
+|---|---|---:|
+| Logistic Regression | Numerical feature table | 95.83% |
+| Random Forest | Numerical feature table | 98.33% |
+| Grayscale CNN | Grayscale image | 88.61% best recorded epoch |
+| Analytics-Assisted CNN | Grayscale, DCT, and morphology channels | 98.33% |
+| Feature-Fusion CNN | Three image channels plus numerical feature vector | 98.61% best epoch; 98.06% final epoch |
+
+The values are from recorded runs on the same 360-image validation split. They are not independent test-set estimates. The small difference between feature fusion and the other strong models should be interpreted cautiously.
+
+## Image analytics
+
+Notebook 02 creates 18 numerical features:
+
+| Group | Features | Description |
+|---|---|---|
+| Intensity | `gray_mean`, `gray_std`, `gray_min`, `gray_max` | Brightness and variation |
+| Edges | `edge_density`, `edge_mean` | Amount and strength of edge response |
+| Texture | `lbp_mean`, `lbp_std`, `local_variance_mean`, `local_variance_std` | Local patterns and neighborhood variation |
+| GLCM | `glcm_contrast`, `glcm_homogeneity`, `glcm_energy` | Relationships between neighboring pixel intensities |
+| DCT | `dct_low_energy_ratio`, `dct_high_energy_ratio` | Broad structure and fine-frequency detail |
+| Morphology | `morphology_region_count`, `morphology_largest_area`, `morphology_foreground_ratio` | Thresholded connected-region properties |
+
+Morphological responses provide exploratory structural information. They do not reliably isolate defects in every image and are not treated as ground-truth segmentation masks.
 
 ## Dataset setup
 
-Obtain the NEU-DET dataset from its public distribution and extract it under `dataset/NEU-DET/`. The expected structure is:
+Extract NEU-DET under `dataset/NEU-DET/` with the following structure:
 
 ```text
 dataset/NEU-DET/
@@ -68,80 +77,26 @@ dataset/NEU-DET/
     └── annotations/*.xml
 ```
 
-Each split's `images` folder should contain one subfolder for each of the six class names listed above. The exploration notebook checks the files and annotation correspondence. Keep the dataset local: it is excluded from Git because of its size and licensing/distribution terms.
+Each `images` folder should contain subfolders named `crazing`, `inclusion`, `patches`, `pitted_surface`, `rolled-in_scale`, and `scratches`.
 
-## Environment
+## Environment and execution
 
-The notebooks use Python with the following packages:
+The notebooks use Python with OpenCV, NumPy, Pandas, Matplotlib, scikit-learn, PyTorch, and Jupyter. Install these packages in the selected notebook kernel; choose a PyTorch build suitable for the local CPU/GPU.
 
-- OpenCV (`opencv-python`)
-- NumPy
-- Pandas
-- Matplotlib
-- scikit-learn
-- PyTorch
-- Jupyter Notebook or JupyterLab
+Run notebooks in the order listed above. Notebook 02 generates `outputs/neu_feature_analytics/neu_feature_table.csv`, which Notebook 06 requires. The notebooks write generated tables, plots, training histories, and model weights under `outputs/`.
 
-Install any missing packages in the Python environment selected as the notebook kernel. PyTorch installation can vary by CPU/GPU setup; use the installation command recommended for your system by the official PyTorch installation selector.
+## Selected plots
 
-## Run the notebooks
+- Basic representations and operations: `outputs/neu_basic_analytics/`
+- Dataset samples, DCT, and morphology: `outputs/neu_dataset_exploration/`
+- Feature comparisons: `outputs/neu_feature_analytics/`
+- CNN confusion matrices: `outputs/neu_cnn/`, `outputs/neu_analytics_cnn/`, and `outputs/neu_review3_feature_fusion/`
 
-Open the repository in Jupyter, select the intended Python environment, and run notebooks in this order:
+The dataset, generated tables, and model weights are excluded from Git. Selected PNG plots are tracked. See [PROJECT_REPORT.md](PROJECT_REPORT.md) for detailed methodology, findings, figures, and interpretation.
 
-1. `00_neu_basic_image_analytics.ipynb` — representations, color models, histograms, and basic image operations.
-2. `01_neu_dataset_exploration1.ipynb` — dataset inventory, samples, annotations, intensity summaries, DCT, and morphology demonstrations.
-3. `02_neu_feature_analytics2.ipynb` — extracts the per-image feature table and category comparisons.
-4. `04_neu_cnn_baseline.ipynb` — trains the grayscale CNN baseline.
-5. `05_neu_analytics_assisted_cnn.ipynb` — trains a CNN using grayscale, DCT, and morphology image channels.
-6. `06_neu_review3_feature_fusion.ipynb` — combines those image channels with the numerical feature table.
+## Contributors
 
-Notebooks 05 and 06 rely on outputs created by earlier notebooks. Run Notebook 02 before them so `outputs/neu_feature_analytics/neu_feature_table.csv` exists. Paths are resolved from the project directory or the `notebooks` directory; launch Jupyter from either location for the notebooks to locate the project.
-
-## Feature table
-
-Notebook 02 creates one row per image. The table includes identifiers (`split`, `category`, `file`) and 18 analytical columns:
-
-| Feature group | Columns | What they describe |
-|---|---|---|
-| Intensity | `gray_mean`, `gray_std`, `gray_min`, `gray_max` | Brightness and its variation |
-| Edges | `edge_density`, `edge_mean` | Amount and strength of edge response |
-| Texture | `lbp_mean`, `lbp_std`, `local_variance_mean`, `local_variance_std` | Local patterns and neighborhood variation |
-| GLCM | `glcm_contrast`, `glcm_homogeneity`, `glcm_energy` | Neighboring-pixel contrast and texture uniformity |
-| DCT | `dct_low_energy_ratio`, `dct_high_energy_ratio` | Broad image structure and fine frequency detail |
-| Morphology | `morphology_region_count`, `morphology_largest_area`, `morphology_foreground_ratio` | Thresholded connected-region structure |
-
-Notebook 03's feature table is used by Logistic Regression and Random Forest (see the available model workflow in the repository's notebooks). Notebook 06 normalizes these numerical columns using training rows and feeds them to the feature branch of the fusion network. Labels and filenames are identifiers, not model input features.
-
-## Model comparison
-
-The repository explores three complementary approaches:
-
-1. **Classical ML:** Logistic Regression and Random Forest classify the numerical feature table.
-2. **Image-channel CNN:** the CNN learns from image pixels; the analytics-assisted version receives grayscale, high-frequency DCT, and morphology channels.
-3. **Feature-fusion CNN:** a CNN image branch and a dense numerical-feature branch are concatenated and passed to a six-class classifier.
-
-Use the generated confusion matrices and accuracy summaries to compare class-specific errors. A high validation score on NEU-DET does not establish robustness to other cameras, lighting, steel products, or factory conditions.
-
-## Generated outputs
-
-Notebook outputs are written under `outputs/`, including:
-
-- Dataset inventory, annotation checks, and sample visualizations
-- Feature table and feature-comparison plots
-- Classical ML feature importance and confusion matrices
-- CNN training histories and confusion matrices
-- Model comparison plots and feature-fusion results
-
-`dataset/` and `outputs/` are ignored by Git by default. The repository currently tracks selected PNG plots as illustrative results; regenerate tables, metrics, and model weights by running the notebooks.
-
-## Reproducibility notes
-
-- CNN training is stochastic; results may vary across runs and hardware.
-- The validation set is used for model comparison, so these scores are validation measurements.
-- The numerical feature scaler is fitted on the training split in the feature-fusion notebook.
-- Ground-truth annotations are for dataset exploration and evaluation; they must not be used as input to feature construction or defect prediction.
-- Morphology responses depend on thresholding and kernel choices and should be interpreted as exploratory features.
-
-## License and dataset attribution
-
-This repository contains project notebooks and selected result plots. It does not include the NEU-DET dataset. Follow the dataset provider's terms for downloading, use, and redistribution, and add the appropriate attribution and license information before redistributing dataset-derived materials.
+| **Name** | **Roll No** |
+|---|---|
+| **Salai Nimalan** | 23MIA1064 |
+| **Aditya Rao B** | 23MIA1120 |
